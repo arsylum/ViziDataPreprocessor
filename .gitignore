@@ -1,0 +1,29 @@
+*.class
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Eclipse
+.classpath
+.project
+.metadata
+.settings/
+local.properties
+
+# Maven, etc.
+/out/
+/target/
+
+# WDTK dumpfile download directory
+/dumpfiles/
+
+# General
+*.pyc
+*~
+*.bak
+*.sw[o,p]
+*.tmp
+.DS_Store
+Thumbs.db
