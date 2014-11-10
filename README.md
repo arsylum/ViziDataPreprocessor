@@ -1,7 +1,7 @@
 ViziDataPreprocessor 0.1
 ========================
 
-Generates the data files for ViziData
+Generates the data files for [ViziData](https://github.com/gordelwig/ViziData).
 
 ## Requirements
 
