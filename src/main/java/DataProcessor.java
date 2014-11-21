@@ -213,6 +213,11 @@ public class DataProcessor {
 							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
 							if(value instanceof GlobeCoordinatesValue) {
 								coords.put(subj.getId(), (GlobeCoordinatesValue) value);
+								
+								/*/
+								GlobeCoordinatesValue v = (GlobeCoordinatesValue) value;
+								System.out.println(v.getLatitude());
+								System.out.println((double)v.getLatitude());//*/
 							}
 						}
 					}
@@ -332,7 +337,8 @@ public class DataProcessor {
 					cv = coords.get(ds.geo.get(s));
 					tv = ds.time.get(s);				
 					
-					if(cv != null && tv != null) { // is usable for viz
+					if((cv != null && tv != null )// is usable for viz
+						&& (tv <=2015)) { //exclude the future for now (TODO move into dataset config)
 						
 						long y = tv;
 						if(min>y) { min = y; }
@@ -340,8 +346,8 @@ public class DataProcessor {
 						
 						int tile = 0;
 						int propI;
-						double lon = cv.getLongitude()/1000000000D;
-						double lat = cv.getLatitude()/1000000000D;
+						double lon = cv.getLongitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;///1000000000D;
+						double lat = cv.getLatitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;///1000000000D;
 						while(lon > (GEO_WMIN+(tile+1)*geo_tile_width)) {
 							tile++;
 						}
