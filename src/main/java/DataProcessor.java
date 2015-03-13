@@ -281,7 +281,7 @@ public class DataProcessor {
 			HashMap<String,Integer> propMap = new HashMap<String,Integer>();
 			JSONArray jp_members = new JSONArray();
 			
-			HashMap<String, JSONObject> datasetdata = new HashMap<String, JSONObject>();
+			HashMap<String, JSONArray> datasetdata = new HashMap<String, JSONArray>();
 			JSONArray jd_datasets = new JSONArray();
 			
 
@@ -330,7 +330,12 @@ public class DataProcessor {
 				
 				double 	min = Double.POSITIVE_INFINITY,
 						max = Double.NEGATIVE_INFINITY;
-				JSONObject jd = new JSONObject();
+
+				// create and initialize dataset array
+				JSONArray jd = new JSONArray();
+				for(int i = 0; i < GEO_TILE_COUNT; i++) {
+					jd.put(i, new JSONObject());
+				}
 			
 				for(String s : humans) {
 					
@@ -366,6 +371,19 @@ public class DataProcessor {
 						
 						// Insert in data, check for already existing objects
 						String key = Long.toString((y));
+						JSONArray geodata = new JSONArray()
+							.put(lon).put(lat).put(propI);
+						
+						if(!jd.getJSONObject(tile).has(key)) { // !key exists
+							jd.getJSONObject(tile).put(key, new JSONArray()
+								.put(geodata)
+							);
+						} else {
+							((JSONArray)jd.getJSONObject(tile).get(key))
+								.put(geodata);
+						}
+						
+						/*
 						if(!jd.has(key)) { // key no exists, create new
 							jd.put(key, new JSONArray()
 								.put(tile,new JSONArray()
@@ -385,7 +403,7 @@ public class DataProcessor {
 								((JSONArray)a.get(tile)).put(new JSONArray()
 									.put(lon).put(lat).put(propI));
 							}
-						}
+						}*/
 					}
 				}
 				
@@ -449,7 +467,8 @@ public class DataProcessor {
 			return true;
 		}
 		
-		/*private boolean writeJsonToFile(String filename, JSONArray j) {
+		private boolean writeJsonToFile(String filename, JSONArray j) {
+			System.out.print("*** writing file "+filename+" to disk...");
 			Writer writer = null;
 			try {
 			    writer = new BufferedWriter(new OutputStreamWriter(
@@ -460,11 +479,12 @@ public class DataProcessor {
 			} finally {
 			   try {
 				   writer.close();
+				   System.out.println("done.");
 			   } catch (Exception ex) {
 				   ex.printStackTrace();
 			   }
 			}
 			return true;
-		}*/
+		}
 	}
 }
