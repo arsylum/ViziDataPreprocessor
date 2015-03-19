@@ -412,8 +412,14 @@ public class DataProcessor {
 					//.put("tile_count", GEO_TILE_COUNT)
 					.put("datasets", jgds);
 				
-				writeJsonToFile(groupPropsFileName, gProps.get(g.id));
+				JSONObject props = new JSONObject()
+					.put("properties", new JSONArray()
+						.put("id")) // TODO someday we will actually collect something else! maybe
+					.put("members", gProps.get(g.id));
+				
+				writeJsonToFile(groupPropsFileName, props);
 				writeJsonToFile(groupFileName, jg);
+				
 			}
 			return;
 		}
