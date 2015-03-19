@@ -407,7 +407,7 @@ public class DataProcessor {
 				jg.put("id", g.id)
 					.put("title", g.title)
 					.put("label", g.label)
-					.put("properties", groupFileName)
+					.put("properties", groupPropsFileName)
 					.put("tile_width", geo_tile_width)
 					//.put("tile_count", GEO_TILE_COUNT)
 					.put("datasets", jgds);
