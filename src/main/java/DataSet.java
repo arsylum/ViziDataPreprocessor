@@ -1,8 +1,6 @@
 import java.util.HashMap;
 
 import org.json.JSONObject;
-import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
-import org.wikidata.wdtk.datamodel.interfaces.TimeValue;
 
 
 /**
@@ -14,7 +12,9 @@ import org.wikidata.wdtk.datamodel.interfaces.TimeValue;
 public class DataSet {
 	
 	public String 		id,
-						file;
+						file,
+						geoProp,
+						timeProp;
 	
 	public JSONObject 	strings,
 						colorScale;
@@ -22,8 +22,13 @@ public class DataSet {
 	public HashMap<String,String> geo;
 	public HashMap<String,Long> time;
 	
+	public DataGroup 	group;
+	
+	public double		miny,
+						maxy;
 	
 	public DataSet(){
-		
+		this.geo = new HashMap<String,String>();
+		this.time = new HashMap<String,Long>();
 	}
 }

@@ -4,10 +4,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.json.JSONArray;
@@ -32,7 +31,7 @@ import org.wikidata.wdtk.dumpfiles.StatisticsMwRevisionProcessor;
  * 
  * based on DumpProcessingExample by Markus Kroetzsch
  * 
- * @version 0.1
+ * @version 0.2
  * @author Georg Wild
  * 
  */
@@ -79,14 +78,16 @@ public class DataProcessor {
 	private static void printDocumentation() {
 		
 		System.out.println("********************************************************************");
-		System.out.println("*** ViziData Dump Data Extractor V0.1");
+		System.out.println("*** ViziData Dump Data Extractor V0.2");
 		System.out.println("***");
 		System.out.println("*** This program will chew on Wikidatas data and create");
 		System.out.println("*** the JSON files that can be feed to the ViziData web application.");
 		System.out.println("***");
-		System.out.println("*** It's currently very basic and poorly written (much hardcode)");
-		System.out.println("*** and gets the birth and death data of all humans.");
-		System.out.println("*** Just be patient.");
+		System.out.println("*** The data to extract is declared in configuration objects inside");
+		System.out.println("*** the ItemDataProcessors private constructor.");
+		System.out.println("*** The programm is far from performance optimized and memory usage");
+		System.out.println("*** can be huge, especially with multiple DataSets.");
+		System.out.println("*** Heapsize of 2GB is currently recommended. (-Xmx2048M)");
 		System.out.println("********************************************************************");
 		
 	}
@@ -103,140 +104,155 @@ public class DataProcessor {
 		
 
 		private static final int 
-			GEO_TILE_COUNT = 36, // number of slices for geodata grouping
+			GEO_TILE_COUNT = 36, // number of slices for geodata tiling
 			GEO_WMIN = -180,
 			GEO_WMAX = 180;
 		
-		private static final JSONObject DEFAULT_COLOR_SCALE = new JSONObject()
+		/*private static final JSONObject DEFAULT_COLOR_SCALE = new JSONObject()
 			.put("min", new JSONArray()
 				.put(134).put(205).put(215))
 			.put("max", new JSONArray()
-				.put(0).put(0).put(0));
+				.put(0).put(0).put(0));*/
 		
 		private int itemCount = 0;
 		
+		private DataGroup[] groups = new DataGroup[2];			// configuration
+		private Set<DataSet> dataSets = new HashSet<DataSet>(); // objects
+		
 		// all coordinate values
-		HashMap<String,GlobeCoordinatesValue> coords = new HashMap<String,GlobeCoordinatesValue>(); // coordinates of items
+		private HashMap<String,GlobeCoordinatesValue> coords = new HashMap<String,GlobeCoordinatesValue>(); // coordinates of items
 		
 		// for data gathering, should be made more dynamic at some point
-		Set<String> humans = new HashSet<String>();
-		HashMap<String,String> h_placeOfBirth = new HashMap<String, String>();
-		HashMap<String,String> h_placeOfDeath = new HashMap<String, String>();
-		HashMap<String,Long> h_dateOfBirth = new HashMap<String, Long>();
-		HashMap<String,Long> h_dateOfDeath = new HashMap<String, Long>();	
+		//Set<String> humans = new HashSet<String>();
 		
 		/**
-		 * TODO this function is almost completely hard coded
-		 * better approach would be to define a static configuration object
-		 * about which datagroups and datasets to build and work it all from there
+		 * the configuration objects
+		 * (declare what the data processor shall extract)
+		 * WARNING: too many DataSets at once will cause excessive memory usage!
+		 */
+		private ItemDataProcessor() {
+			DataSet s;
+			
+			// DataGroups
+			groups[0] = new DataGroup("humans","Humans","humans", "Q5");
+			groups[1] = new DataGroup("any", "Anything", "anything");
+			
+			// DataSets
+			s = new DataSet();
+				s.id = "birth";
+				s.group = groups[0];
+				s.geoProp = "P19";
+				s.timeProp = "P569";
+				s.strings = new JSONObject()
+					.put("label", "births")
+					.put("desc", "Place and time of birth")
+					.put("term", "were born");		
+				//s.colorScale = DEFAULT_COLOR_SCALE; // TODO ditch color scale?
+			dataSets.add(s);
+				
+			s = new DataSet();
+				s.id = "death";
+				s.group = groups[0];
+				s.geoProp = "P20";
+				s.timeProp = "P570";
+				s.strings = new JSONObject()
+					.put("label", "deaths")
+					.put("desc", "Place and time of death")
+					.put("term", "have died");		
+				/*s.colorScale = new JSONObject()
+					.put("min", new JSONArray()
+						.put(255).put(201).put(201))
+					.put("max", new JSONArray()
+						.put(10).put(0).put(0));*/
+			dataSets.add(s);
+		}
+		
+		/**
+		 * processes an Item
+		 * cycle over each defined DataSet and tries to collect the related data
 		 */
 		@Override
 		public void processItemDocument(ItemDocument itemDocument) {
 			
 			ItemIdValue subj = itemDocument.getItemId();	// this item
 			Value value = null; 							// all purpose value obj
-			boolean is_human = false;						// flag
+			boolean matching_target = false;				// instanceOf flag
+			ItemIdValue geoVal;								
+			TimeValue	timeVal;
 			
-			ItemIdValue birthplace = null,					// place of birth
-						deathplace = null;					// place of death
-			TimeValue	birthdate = null,					// date of birth
-						deathdate = null;					// date of death
-
-			for (StatementGroup sg : itemDocument.getStatementGroups()) {
+			for(DataSet d : dataSets) {
+				// init vars
+				matching_target = (d.group.instanceOf.equals(null));
+				geoVal = null;
+				timeVal = null;
 				
-				// TARGET = humans
-				if(sg.getProperty().getId().equals("P31")) { // instance of
-					for(Statement s : sg.getStatements()) {
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof ItemIdValue) {
-								if("Q5".equals(((ItemIdValue) value).getId())) { // human
-									is_human = true;
+				// cycle over statements
+				for (StatementGroup sg : itemDocument.getStatementGroups()) {
+					
+					// check if we have item of the right class
+					if(!matching_target) {
+						if(sg.getProperty().getId().equals("P31")) { // instance of
+							for(Statement s : sg.getStatements()) {
+								if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+									value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+									if(value instanceof ItemIdValue) {
+										if(d.group.instanceOf.equals(((ItemIdValue) value).getId())) {
+											matching_target = true;
+										}
+									}
+								}
+							}
+						}
+					}
+					// save the geo property data
+					if(sg.getProperty().getId().equals(d.geoProp)) {
+						for(Statement s : sg.getStatements()){
+							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+								if(value instanceof ItemIdValue) {
+									geoVal = (ItemIdValue) value;
+								}
+							}
+						}
+					}
+					// save the time property data
+					if(sg.getProperty().getId().equals(d.timeProp)) {
+						for(Statement s : sg.getStatements()){
+							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+								if(value instanceof TimeValue) {
+									timeVal = (TimeValue) value;
+								}
+							}
+						}
+					}
+					
+					// save any coordinate value that we don't have
+					if(!coords.containsKey(subj.getId())) {
+						if(sg.getProperty().getId().equals("P625")) { // coordinate location
+							for(Statement s : sg.getStatements()){
+								if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+									value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+									if(value instanceof GlobeCoordinatesValue) {
+										coords.put(subj.getId(), (GlobeCoordinatesValue) value);
+									}
 								}
 							}
 						}
 					}
 				}
-
-				///// GATHER INTEL
-				// place of birth
-				if(sg.getProperty().getId().equals("P19")) { // place of birth
-					for(Statement s : sg.getStatements()){
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof ItemIdValue) {
-								birthplace = (ItemIdValue) value;
-							}
-						}
-					}
-				}
-				// place of death
-				if(sg.getProperty().getId().equals("P20")) { // place of death
-					for(Statement s : sg.getStatements()){
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof ItemIdValue) {
-								deathplace = (ItemIdValue) value;
-							}
-						}
-					}
-				}
-				// date of birth
-				if(sg.getProperty().getId().equals("P569")) { // date of birth
-					for(Statement s : sg.getStatements()){
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof TimeValue) {
-								birthdate = (TimeValue) value;
-							}
-						}
-					}
-				}
-				// date of death
-				if(sg.getProperty().getId().equals("P570")) { // date of death
-					for(Statement s : sg.getStatements()){
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof TimeValue) {
-								deathdate = (TimeValue) value;
-							}
-						}
-					}
-				}
-				/////
 				
-				///// general information
-				// save coordinates if we find any
-				if(sg.getProperty().getId().equals("P625")) { // coordinate location
-					for(Statement s : sg.getStatements()){
-						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-							if(value instanceof GlobeCoordinatesValue) {
-								coords.put(subj.getId(), (GlobeCoordinatesValue) value);
-								
-								/*/
-								GlobeCoordinatesValue v = (GlobeCoordinatesValue) value;
-								System.out.println(v.getLatitude());
-								System.out.println((double)v.getLatitude());//*/
-							}
-						}
-					}
+				if(matching_target && geoVal != null && timeVal != null) {
+					// TODO so what about collecting other information?
+					d.geo.put(subj.getId(), geoVal.getId());
+					d.time.put(subj.getId(), timeVal.getYear());
 				}
-				/////
-			}
-			
-			// EXTERMINA...erm..SAVE!
-			if(is_human) {
-				humans.add(subj.getId());
-				if(birthplace != null) h_placeOfBirth.put(subj.getId(), birthplace.getId());
-				if(deathplace != null) h_placeOfDeath.put(subj.getId(), deathplace.getId());
-				if(birthdate != null) h_dateOfBirth.put(subj.getId(), birthdate.getYear());
-				if(deathdate != null) h_dateOfDeath.put(subj.getId(), deathdate.getYear());
-			}
-			
-			itemCount++;
-			if(itemCount%100000 == 0) {
-				printStatus();
+				
+				itemCount++;
+				if(itemCount%100000 == 0) {
+					printStatus();
+				}
+				
 			}
 		}
 
@@ -249,9 +265,10 @@ public class DataProcessor {
 		
 		private void printStatus() {
 			System.out.println("processed "+itemCount+" items so far...");
-			System.out.println("...got "+humans.size()+" humans");
-			System.out.println("...got "+(h_dateOfBirth.size()+h_dateOfDeath.size())+" time values");
-			System.out.println("...got "+(h_placeOfBirth.size()+h_placeOfDeath.size())+" locations");
+			// TODO some informative output may be nice
+			//System.out.println("...got "+humans.size()+" humans");
+			//System.out.println("...got "+(h_dateOfBirth.size()+h_dateOfDeath.size())+" time values");
+			//System.out.println("...got "+(h_placeOfBirth.size()+h_placeOfDeath.size())+" locations");
 			System.out.println("...(also got "+coords.size()+" location-coordinate mappings)");
 			System.out.println("");
 		}
@@ -267,87 +284,50 @@ public class DataProcessor {
 		}
 
 		/**
-		 * TODO this should be made much more dynamic 
-		 * to automate generation of various datasets 
-		 * as much as possible
-		 * (still much hard code)
+		 * builds the collected data into JSONObjects and writes them to the disk
 		 */
 		private void buildData() {
 			GlobeCoordinatesValue cv;
 			Long tv;
 			
 			int geo_tile_width = (GEO_WMAX - GEO_WMIN)/GEO_TILE_COUNT;
+						
+			// used fill up the properties during processing
+			HashMap<String, HashMap<String,Integer>> gPropMaps = new HashMap<String, HashMap<String,Integer>>();
+			HashMap<String, JSONArray> gProps = new HashMap<String, JSONArray>();
 			
-			HashMap<String,Integer> propMap = new HashMap<String,Integer>();
-			JSONArray jp_members = new JSONArray();
-			
-			HashMap<String, JSONArray> datasetdata = new HashMap<String, JSONArray>();
-			JSONArray jd_datasets = new JSONArray();
-			
+			// map of the groups of all the data sets
+			HashMap<String, HashMap<DataSet, JSONArray>> groupMap = new HashMap<String, HashMap<DataSet, JSONArray>>();
 
-			//////////////////
-			/// dataset config
-			/// (note: should be moved at the top of class at some point)
-			Integer filecount = 0;
-			DataSet d;
-			Collection<DataSet> sm = new ArrayList<DataSet>();
-			
-			// births
-			d = new DataSet();
-				d.id = "birth";
-				d.file = "humans_d"+String.format("%02d", filecount++)+".json";
-				d.geo = h_placeOfBirth;
-				d.time = h_dateOfBirth;
-				d.strings = new JSONObject()
-					.put("label", "births")
-					.put("desc", "Place and time of birth")
-					.put("term", "were born");		
-				d.colorScale = DEFAULT_COLOR_SCALE;
-			sm.add(d);
-			
-			// deaths
-			d = new DataSet();
-				d.id = "death";
-				d.file = "humans_d"+String.format("%02d", filecount++)+".json";
-				d.geo = h_placeOfDeath;
-				d.time = h_dateOfDeath;
-				d.strings = new JSONObject()
-					.put("label", "deaths")
-					.put("desc", "Place and time of death")
-					.put("term", "have died");		
-				d.colorScale = new JSONObject()
-					.put("min", new JSONArray()
-						.put(255).put(201).put(201))
-					.put("max", new JSONArray()
-						.put(10).put(0).put(0));
-			sm.add(d);
-			/// dataset config
-			//////////////////
+			for(DataSet s : dataSets) {
+				// initializing things
+				String gid = s.group.id;
 				
-			
-			
-			for(DataSet ds : sm) {
+				if(!gPropMaps.containsKey(gid)) {
+					gPropMaps.put(gid, new HashMap<String,Integer>());
+				}
+				if(!gProps.containsKey(gid)) {
+					gProps.put(gid, new JSONArray());
+				}
+				HashMap<String,Integer> propMap = gPropMaps.get(gid);
+				JSONArray props = gProps.get(gid);
 				
-				double 	min = Double.POSITIVE_INFINITY,
-						max = Double.NEGATIVE_INFINITY;
+				double 	miny = Double.POSITIVE_INFINITY,
+						maxy = Double.NEGATIVE_INFINITY;
 
 				// create and initialize dataset array
 				JSONArray jd = new JSONArray();
 				for(int i = 0; i < GEO_TILE_COUNT; i++) {
 					jd.put(i, new JSONObject());
 				}
-			
-				for(String s : humans) {
+				
+				for(String h : s.time.keySet()) {
+					cv = coords.get(s.geo.get(h));
+					tv = s.time.get(h);
 					
-					cv = coords.get(ds.geo.get(s));
-					tv = ds.time.get(s);				
-					
-					if((cv != null && tv != null )// is usable for viz
-						&& (tv <=2015)) { //exclude the future for now (TODO move into dataset config)
-						
-						long y = tv;
-						if(min>y) { min = y; }
-						if(max<y) { max = y; }
+					if(cv != null && tv != null) { // TODO handle "unrealistic" values in the future?
+						if(miny > tv) { miny = tv; }
+						if(maxy < tv) { maxy = tv; }
 						
 						int tile = 0;
 						int propI;
@@ -358,19 +338,19 @@ public class DataProcessor {
 						}
 						
 						// Insert in props, if no exists
-						if(propMap.containsKey(s)) {
-							propI = propMap.get(s);
+						if(propMap.containsKey(h)) {
+							propI = propMap.get(h);
 						} else {
-							jp_members.put(new JSONArray()
-									.put(s)
+							props.put(new JSONArray()
+									.put(h)
 									// TODO put all the properties we have (currently none)
 							);
-							propI = jp_members.length();
-							propMap.put(s, propI);
+							propI = props.length();
+							propMap.put(h, propI);
 						}
 						
 						// Insert in data, check for already existing objects
-						String key = Long.toString((y));
+						String key = Long.toString(tv);
 						JSONArray geodata = new JSONArray()
 							.put(lon).put(lat).put(propI);
 						
@@ -383,60 +363,58 @@ public class DataProcessor {
 								.put(geodata);
 						}
 						
-						/*
-						if(!jd.has(key)) { // key no exists, create new
-							jd.put(key, new JSONArray()
-								.put(tile,new JSONArray()
-									.put(new JSONArray()
-										.put(lon).put(lat).put(propI)
-									)
-								)
-							);
-						} else { // key exists
-							JSONArray a = (JSONArray)jd.get(key);
-							if(a.isNull(tile)) { // tile is empty
-								a.put(tile,new JSONArray().put(new JSONArray()
-										.put(lon).put(lat).put(propI)
-									)
-								);
-							} else { // tile haz points
-								((JSONArray)a.get(tile)).put(new JSONArray()
-									.put(lon).put(lat).put(propI));
-							}
-						}*/
 					}
 				}
 				
-				jd_datasets.put(new JSONObject()
-					.put("id", ds.id)
-					.put("file", ds.file)
-					.put("min", min)
-					.put("max", max)
-					.put("strings", ds.strings)
-					.put("colorScale", ds.colorScale));
-				datasetdata.put(ds.file, jd);
+				s.maxy = maxy;
+				s.miny = miny;
+				
+				if(!groupMap.containsKey(gid)) {
+					groupMap.put(gid, new HashMap<DataSet,JSONArray>());
+				}
+				groupMap.get(gid).put(s, jd);
 			}
 			
-			JSONObject jp = new JSONObject()	// the properties file
-					.put("properties", new JSONArray()
-							.put("id"))
-					.put("members", jp_members);
-			
-			JSONObject jm = new JSONObject()	// the meta file
-				.put("id", "humans")
-				.put("title", "Humans")
-				.put("label", "humans")
-				.put("properties", "humans_p.json")
-				.put("tile_width", geo_tile_width)
-				//.put("tile_count", GEO_TILE_COUNT)
-				.put("datasets", jd_datasets);
-
-			writeJsonToFile("humans.json", jm);
-			writeJsonToFile("humans_p.json", jp);
-			for(String k : datasetdata.keySet()) {
-				writeJsonToFile(k, datasetdata.get(k));
+			// generate the output
+			for(Entry<String, HashMap<DataSet, JSONArray>> ge : groupMap.entrySet()) {
+				DataGroup g = null;
+				JSONObject jg = new JSONObject(); // the meta file
+				JSONArray jgds = new JSONArray(); // the datasets array
+				int setcount = 0;
+				
+				for(Entry<DataSet, JSONArray> se : ge.getValue().entrySet()) {
+					DataSet d = se.getKey();
+					JSONArray data = se.getValue();
+					if(g == null) {
+						g = d.group;
+					}
+					//d.file = "humans_d"+String.format("%02d", filecount++)+".json";
+					String dataFileName = g.id+"_d"+String.format("%02d", setcount++)+".json";
+					
+					JSONObject ds = new JSONObject()
+						.put("id", d.id)
+						.put("min", d.miny)
+						.put("max", d.maxy)
+						.put("strings", d.strings)
+						.put("file", dataFileName);
+						//.put("colorScale", d.colorScale));
+					jgds.put(ds);
+					writeJsonToFile(dataFileName, data);
+				}
+					
+				String groupFileName = g.id+".json";
+				String groupPropsFileName = g.id+"_p.json";
+				jg.put("id", g.id)
+					.put("title", g.title)
+					.put("label", g.label)
+					.put("properties", groupFileName)
+					.put("tile_width", geo_tile_width)
+					//.put("tile_count", GEO_TILE_COUNT)
+					.put("datasets", jgds);
+				
+				writeJsonToFile(groupPropsFileName, gProps.get(g.id));
+				writeJsonToFile(groupFileName, jg);
 			}
-			
 			return;
 		}
 		
