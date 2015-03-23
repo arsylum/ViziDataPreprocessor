@@ -341,12 +341,12 @@ public class DataProcessor {
 						if(propMap.containsKey(h)) {
 							propI = propMap.get(h);
 						} else {
+							propI = props.length();
+							propMap.put(h, propI);
 							props.put(new JSONArray()
 									.put(h)
 									// TODO put all the properties we have (currently none)
 							);
-							propI = props.length();
-							propMap.put(h, propI);
 						}
 						
 						// Insert in data, check for already existing objects
