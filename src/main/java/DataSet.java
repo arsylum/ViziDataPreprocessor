@@ -25,7 +25,8 @@ public class DataSet {
 	public DataGroup 	group;
 	
 	public double		miny,
-						maxy;
+						maxy,
+						maxEventCount;
 	
 	public DataSet(){
 		this.geo = new HashMap<String,String>();

@@ -6,8 +6,10 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,6 +17,7 @@ import org.wikidata.wdtk.datamodel.interfaces.EntityDocumentProcessor;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
 import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
+import org.wikidata.wdtk.datamodel.interfaces.MonolingualTextValue;
 import org.wikidata.wdtk.datamodel.interfaces.PropertyDocument;
 import org.wikidata.wdtk.datamodel.interfaces.Statement;
 import org.wikidata.wdtk.datamodel.interfaces.StatementGroup;
@@ -125,6 +128,9 @@ public class DataProcessor {
 		// for data gathering, should be made more dynamic at some point
 		//Set<String> humans = new HashSet<String>();
 		
+		// collect language codes
+		Set<String> langcodes = new TreeSet<String>();
+		
 		/**
 		 * the configuration objects
 		 * (declare what the data processor shall extract)
@@ -165,6 +171,22 @@ public class DataProcessor {
 					.put("max", new JSONArray()
 						.put(10).put(0).put(0));*/
 			dataSets.add(s);
+			
+			s = new DataSet();
+				s.id = "pubs";
+				s.group = groups[1];
+				s.geoProp = "P291";
+				s.timeProp = "P577";
+				s.strings = new JSONObject()
+					.put("label", "publications")
+					.put("desc", "Place and time of publication")
+					.put("term", "were published");		
+				/*s.colorScale = new JSONObject()
+					.put("min", new JSONArray()
+						.put(255).put(201).put(201))
+					.put("max", new JSONArray()
+						.put(10).put(0).put(0));*/
+			dataSets.add(s);
 		}
 		
 		/**
@@ -180,9 +202,17 @@ public class DataProcessor {
 			ItemIdValue geoVal;								
 			TimeValue	timeVal;
 			
+			
+			Map<String,MonolingualTextValue> labels = itemDocument.getLabels();
+			for(String s : labels.keySet()) {
+				if(!langcodes.contains(s)) {
+					langcodes.add(s);
+				}
+			}
+			
 			for(DataSet d : dataSets) {
 				// init vars
-				matching_target = (d.group.instanceOf.equals(null));
+				matching_target = (d.group.instanceOf == null);
 				geoVal = null;
 				timeVal = null;
 				
@@ -277,6 +307,11 @@ public class DataProcessor {
 		public void finishProcessingEntityDocuments() {
 			
 			System.out.println("*** Finished the dump!");
+			System.out.println("*** List of all discovered languace codes:");
+			for(String s : langcodes) {
+				System.out.println(s);
+			}
+			System.out.println("*** ");
 			System.out.println("*** Let me build the files for you real quick...");	
 			buildData();
 			System.out.println("*** There you go!");
@@ -314,6 +349,7 @@ public class DataProcessor {
 				
 				double 	miny = Double.POSITIVE_INFINITY,
 						maxy = Double.NEGATIVE_INFINITY;
+				HashMap<Long,Long> yearEventCount = new HashMap<Long,Long>();
 
 				// create and initialize dataset array
 				JSONArray jd = new JSONArray();
@@ -328,6 +364,7 @@ public class DataProcessor {
 					if(cv != null && tv != null) { // TODO handle "unrealistic" values in the future?
 						if(miny > tv) { miny = tv; }
 						if(maxy < tv) { maxy = tv; }
+						yearEventCount.put(tv, yearEventCount.containsKey(tv) ? yearEventCount.get(tv)+1L : 1L);						
 						
 						int tile = 0;
 						int propI;
@@ -368,6 +405,12 @@ public class DataProcessor {
 				
 				s.maxy = maxy;
 				s.miny = miny;
+				s.maxEventCount = 0;
+				for(Long c : yearEventCount.values()) {
+					if(c.doubleValue() > s.maxEventCount) {
+						s.maxEventCount = c.doubleValue();
+					}
+				}
 				
 				if(!groupMap.containsKey(gid)) {
 					groupMap.put(gid, new HashMap<DataSet,JSONArray>());
@@ -395,6 +438,7 @@ public class DataProcessor {
 						.put("id", d.id)
 						.put("min", d.miny)
 						.put("max", d.maxy)
+						.put("maxEventCount", d.maxEventCount)
 						.put("strings", d.strings)
 						.put("file", dataFileName);
 						//.put("colorScale", d.colorScale));
