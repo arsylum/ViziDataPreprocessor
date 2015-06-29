@@ -17,7 +17,8 @@ public class DataSet {
 						timeProp;
 	
 	public JSONObject 	strings,
-						colorScale;
+						options;
+						//colorScale;
 	
 	public HashMap<String,String> geo;
 	public HashMap<String,Long> time;

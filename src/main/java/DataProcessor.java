@@ -19,6 +19,7 @@ import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
 import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
 import org.wikidata.wdtk.datamodel.interfaces.MonolingualTextValue;
 import org.wikidata.wdtk.datamodel.interfaces.PropertyDocument;
+import org.wikidata.wdtk.datamodel.interfaces.QuantityValue;
 import org.wikidata.wdtk.datamodel.interfaces.Statement;
 import org.wikidata.wdtk.datamodel.interfaces.StatementGroup;
 import org.wikidata.wdtk.datamodel.interfaces.TimeValue;
@@ -122,6 +123,10 @@ public class DataProcessor {
 		private DataGroup[] groups = new DataGroup[2];			// configuration
 		private Set<DataSet> dataSets = new HashSet<DataSet>(); // objects
 		
+		
+		DataSet itemSet = new DataSet();
+		DataSet popuSet = new DataSet();
+				
 		// all coordinate values
 		private HashMap<String,GlobeCoordinatesValue> coords = new HashMap<String,GlobeCoordinatesValue>(); // coordinates of items
 		
@@ -141,7 +146,7 @@ public class DataProcessor {
 			
 			// DataGroups
 			groups[0] = new DataGroup("humans","Humans","humans", "Q5");
-			groups[1] = new DataGroup("any", "Anything", "anything");
+			groups[1] = new DataGroup("items", "Items", "items");
 			
 			// DataSets
 			s = new DataSet();
@@ -151,8 +156,14 @@ public class DataProcessor {
 				s.timeProp = "P569";
 				s.strings = new JSONObject()
 					.put("label", "births")
+					.put("zprop", "Year")
+					.put("timelineToolTip", "%l in %x: %v")
 					.put("desc", "Place and time of birth")
-					.put("term", "were born");		
+					.put("term", "between %l and %h");
+				s.options = new JSONObject()
+					.put("initSelection", new JSONObject()
+							.put("min", 1700)
+							.put("max", 2015));
 				//s.colorScale = DEFAULT_COLOR_SCALE; // TODO ditch color scale?
 			dataSets.add(s);
 				
@@ -163,8 +174,14 @@ public class DataProcessor {
 				s.timeProp = "P570";
 				s.strings = new JSONObject()
 					.put("label", "deaths")
+					.put("zprop", "Year")
+					.put("timelineToolTip", "%l in %x: %v")
 					.put("desc", "Place and time of death")
-					.put("term", "have died");		
+					.put("term", "between %l and %h");
+				s.options = new JSONObject()
+					.put("initSelection", new JSONObject()
+						.put("min", 1700)
+						.put("max", 2015));
 				/*s.colorScale = new JSONObject()
 					.put("min", new JSONArray()
 						.put(255).put(201).put(201))
@@ -172,7 +189,7 @@ public class DataProcessor {
 						.put(10).put(0).put(0));*/
 			dataSets.add(s);
 			
-			s = new DataSet();
+			/*s = new DataSet();
 				s.id = "pubs";
 				s.group = groups[1];
 				s.geoProp = "P291";
@@ -185,8 +202,34 @@ public class DataProcessor {
 					.put("min", new JSONArray()
 						.put(255).put(201).put(201))
 					.put("max", new JSONArray()
-						.put(10).put(0).put(0));*/
-			dataSets.add(s);
+						.put(10).put(0).put(0));* /
+			dataSets.add(s);*/
+			
+			// itemSet is calculated semi hardcode
+			itemSet.id = "items";
+			itemSet.strings = new JSONObject()
+				.put("label", "items")
+				.put("zprop", "Sitelinks")
+				.put("timelineToolTip", "%l with %x sitelinks: %v")
+				.put("desc", "Any item with a coordinate location by number of interwiki links.")
+				.put("term", "that <em>have a geographic location</em><br>and between %l and %h sitelinks.");
+			itemSet.options = new JSONObject()
+				.put("initSelection", new JSONObject()
+					.put("min", 0)
+					.put("max", 336));
+			
+			// same with popuset
+			popuSet.id = "habitats";
+			popuSet.strings = new JSONObject()
+				.put("label", "places")
+				.put("zprop", "population")
+				.put("timelineToolTip", "%l with about %x inhabitants: %v")
+				.put("desc", "Inhabited places by approximate population.")
+				.put("term",  "that have between %l and %h residents.");
+			popuSet.options = new JSONObject()
+				.put("initSelection", new JSONObject()
+					.put("min", 0)
+					.put("max", 1000000));
 		}
 		
 		/**
@@ -265,12 +308,27 @@ public class DataProcessor {
 									value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
 									if(value instanceof GlobeCoordinatesValue) {
 										coords.put(subj.getId(), (GlobeCoordinatesValue) value);
+										itemSet.time.put(subj.getId(), (long)itemDocument.getSiteLinks().size());
+									}
+								}
+							}
+						}
+					}
+					
+					if(!popuSet.time.containsKey(subj.getId())) {
+						if(sg.getProperty().getId().equals("P1082")) { // population
+							for(Statement s : sg.getStatements()) {
+								if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+									value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+									if(value instanceof QuantityValue) {
+										popuSet.time.put(subj.getId(), approximatePopulation(((QuantityValue)value).getNumericValue().longValue()));
 									}
 								}
 							}
 						}
 					}
 				}
+				
 				
 				if(matching_target && geoVal != null && timeVal != null) {
 					// TODO so what about collecting other information?
@@ -305,6 +363,20 @@ public class DataProcessor {
 
 		//@Override
 		public void finishProcessingEntityDocuments() {
+			
+			// make itemSet ready
+			// very dirty workaround
+			for(String s : coords.keySet()) { 
+				itemSet.geo.put(s,s);	
+				popuSet.geo.put(s,s);
+				
+			}
+			itemSet.group = groups[1];
+			dataSets.add(itemSet);
+			
+			popuSet.group = groups[1];
+			dataSets.add(popuSet);
+			
 			
 			System.out.println("*** Finished the dump!");
 			System.out.println("*** List of all discovered languace codes:");
@@ -361,7 +433,7 @@ public class DataProcessor {
 					cv = coords.get(s.geo.get(h));
 					tv = s.time.get(h);
 					
-					if(cv != null && tv != null) { // TODO handle "unrealistic" values in the future?
+					if(cv != null && tv != null && cv.getGlobe().equals(GlobeCoordinatesValue.GLOBE_EARTH)) { // TODO handle "unrealistic" values in the future?
 						if(miny > tv) { miny = tv; }
 						if(maxy < tv) { maxy = tv; }
 						yearEventCount.put(tv, yearEventCount.containsKey(tv) ? yearEventCount.get(tv)+1L : 1L);						
@@ -372,6 +444,12 @@ public class DataProcessor {
 						double lat = cv.getLatitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;///1000000000D;
 						while(lon > (GEO_WMIN+(tile+1)*geo_tile_width)) {
 							tile++;
+						}
+						
+						if(tile >= GEO_TILE_COUNT) {
+							System.out.println("### STRANGE VALUE: ");
+							System.out.println("### "+ h + " lon: " + lon + " lat: "+ lat);
+							tile = GEO_TILE_COUNT - 1;
 						}
 						
 						// Insert in props, if no exists
@@ -440,6 +518,7 @@ public class DataProcessor {
 						.put("max", d.maxy)
 						.put("maxEventCount", d.maxEventCount)
 						.put("strings", d.strings)
+						.put("options", d.options)
 						.put("file", dataFileName);
 						//.put("colorScale", d.colorScale));
 					jgds.put(ds);
@@ -513,6 +592,19 @@ public class DataProcessor {
 			   }
 			}
 			return true;
+		}
+		
+		private long approximatePopulation(long pop) {
+			long ret = 0, split;
+			
+			long[] aggregates = new long[]{
+					1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,
+					100000,200000,500000,1000000,2000000,5000000,10000000,50000000,100000000,1000000000};
+			for(long v : aggregates) {
+				split = (long)Math.ceil(ret + (v-ret/2));
+				if(pop >= split) { ret = v; }
+			}
+			return ret;
 		}
 	}
 }
