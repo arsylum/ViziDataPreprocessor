@@ -29,6 +29,8 @@ public class DataSet {
 						maxy,
 						maxEventCount;
 	
+	public Integer		length;
+	
 	public DataSet(){
 		this.geo = new HashMap<String,String>();
 		this.time = new HashMap<String,Long>();

@@ -212,7 +212,7 @@ public class DataProcessor {
 				.put("zprop", "Sitelinks")
 				.put("timelineToolTip", "%l with %x sitelinks: %v")
 				.put("desc", "Any item with a coordinate location by number of interwiki links.")
-				.put("term", "that <em>have a geographic location</em><br>and between %l and %h sitelinks.");
+				.put("term", "that <em>have a geographic location</em> and between %l and %h sitelinks.");
 			itemSet.options = new JSONObject()
 				.put("initSelection", new JSONObject()
 					.put("min", 0)
@@ -397,6 +397,8 @@ public class DataProcessor {
 			GlobeCoordinatesValue cv;
 			Long tv;
 			
+			Integer dataset_length;
+			
 			int geo_tile_width = (GEO_WMAX - GEO_WMIN)/GEO_TILE_COUNT;
 						
 			// used fill up the properties during processing
@@ -429,6 +431,7 @@ public class DataProcessor {
 					jd.put(i, new JSONObject());
 				}
 				
+							
 				for(String h : s.time.keySet()) {
 					cv = coords.get(s.geo.get(h));
 					tv = s.time.get(h);
@@ -481,6 +484,8 @@ public class DataProcessor {
 					}
 				}
 				
+				s.length = s.time.size();
+				
 				s.maxy = maxy;
 				s.miny = miny;
 				s.maxEventCount = 0;
@@ -514,6 +519,7 @@ public class DataProcessor {
 					
 					JSONObject ds = new JSONObject()
 						.put("id", d.id)
+						.put("total_points", d.length)
 						.put("min", d.miny)
 						.put("max", d.maxy)
 						.put("maxEventCount", d.maxEventCount)
