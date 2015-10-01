@@ -2,18 +2,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.wikidata.tools</groupId>
   <artifactId>ViziDataPreprocessor</artifactId>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.3-SNAPSHOT</version>
   <dependencies>
   	<dependency>
 		<groupId>org.wikidata.wdtk</groupId>
 		<artifactId>wdtk-dumpfiles</artifactId>
   		<version>0.5.0</version>
   	</dependency>
-  	<dependency>
-		<groupId>org.json</groupId>
-		<artifactId>json</artifactId>
-		<version>20140107</version>
-	</dependency>
   	<dependency> 
 		<groupId>org.slf4j</groupId>
 		<artifactId>slf4j-log4j12</artifactId>

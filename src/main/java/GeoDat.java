@@ -1,26 +1,26 @@
-import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
+
 
 public class GeoDat {
-	private ItemIdValue location,
-						subject;
+	private String 	location,
+					subject;
 
-	public ItemIdValue getLocation() {
+	public String getLocation() {
 		return location;
 	}
 
-	public void setLocation(ItemIdValue location) {
+	public void setLocation(String location) {
 		this.location = location;
 	}
 
-	public ItemIdValue getSubject() {
+	public String getSubject() {
 		return subject;
 	}
 
-	public void setSubject(ItemIdValue subject) {
+	public void setSubject(String subject) {
 		this.subject = subject;
 	}
 	
-	public GeoDat(ItemIdValue loc, ItemIdValue subj) {
+	public GeoDat(String loc, String subj) {
 		this.location = loc;
 		this.subject = subj;
 	}

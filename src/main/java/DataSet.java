@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.json.JSONObject;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
 import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
@@ -22,41 +21,17 @@ import com.fasterxml.jackson.core.JsonGenerator;
 
 
 /**
- * very basic dataset configuration class
- * everything public for lack of proper good practices
+ * DataSet Class
+ * manages dataset construction
  * @author glux
- * @param <T>
  *
  */
 public class DataSet {
 	
-	/*public static class Strings {
-		private	String  label,
-						zprop,
-						timelineToolTip,
-						desc,
-						term;
-
-		public String getLabel() { return label; }
-		public void setLabel(String label) { this.label = label; }
-
-		public String getZprop() { return zprop; }
-		public void setZprop(String zprop) { this.zprop = zprop; }
-
-		public String getTimelineToolTip() { return timelineToolTip;}
-		public void setTimelineToolTip(String timelineToolTip) {this.timelineToolTip = timelineToolTip;}
-
-		public String getDesc() {return desc;}
-		public void setDesc(String desc) {this.desc = desc;}
-
-		public String getTerm() {return term;}
-		public void setTerm(String term) {this.term = term;}
-	}*/
-	
 	////////////////////////////////
 	// possible feature additions
 	//////////////
-	// colorScale
+	//
 	// dumpDate
 	
 	
@@ -67,21 +42,15 @@ public class DataSet {
 	private String 			id,
 							xyProp,
 							zProp;
-//	private final Class<?>	xyType,
-//							zType;
 						
-	
 	private HashMap<String,String> 	strings;
 	private Set<KeyVal>				options;
 	
 	private HashMap<Integer, Set<GeoDat>> data;
 	private HashMap<Integer, Set<Double[]>>[] digest;
 	
-	private ItemIdValue 					vxy;
+	private String		 					vxy;
 	private Integer 						vz;
-	
-//	public HashMap<String,String> geo;
-//	public HashMap<String,Long> time;
 	
 	private DataGroup 	group;
 	
@@ -90,6 +59,7 @@ public class DataSet {
 						//maxEventCount;
 	
 	private Integer		length;
+	
 	
 	public HashMap<String, String> getStrings() {
 		return strings;
@@ -186,10 +156,29 @@ public class DataSet {
 	public DataGroup getGroup() {
 		return group;
 	}
+	
+	public String getVxy() {
+		return vxy;
+	}
+
+
+	public void setVxy(String vxy) {
+		this.vxy = vxy;
+	}
+
+
+	public Integer getVz() {
+		return vz;
+	}
+
+
+	public void setVz(Integer vz) {
+		this.vz = vz;
+	}
+
 
 
 	/**
-	 * 
 	 * @param id
 	 * @param group 
 	 * @param zProp z axis numeric value property (time/other)
@@ -202,13 +191,7 @@ public class DataSet {
 		this.zProp = zProp;
 		this.xyProp = xyProp;
 		
-//		this.data = new HashMap[GEO_TILE_COUNT-1];
-//		for(int i = 0; i < GEO_TILE_COUNT; ++i) {
-			this.data = new HashMap<Integer,Set<GeoDat>>();
-		//};
-		
-//		this.geo = new HashMap<String,String>();
-//		this.time = new HashMap<String,Long>();
+		this.data = new HashMap<Integer,Set<GeoDat>>();
 			
 		this.length = 0;
 		this.minz = Double.POSITIVE_INFINITY;
@@ -221,9 +204,9 @@ public class DataSet {
 	 * (override default if neccessary)
 	 * @return
 	 */
-	private void crunshXYValue(Value value){
+	protected void crunshXYValue(Value value){
 		if(value instanceof ItemIdValue) {
-			this.vxy = (ItemIdValue) value;
+			this.vxy = ((ItemIdValue) value).getId();
 		}
 	}
 	
@@ -233,14 +216,60 @@ public class DataSet {
 	 * default case is full year from time value
 	 * @param value
 	 */
-	private void crunshZValue(Value value) {
+	protected void crunshZValue(Value value) {
 		if(value instanceof TimeValue) {
 			this.vz = ((Long)((TimeValue) value).getYear()).intValue();
 		}
 	}
 	
 	/**
-	 * search for our data in an itemDocument
+	 * look for the geo data
+	 * (override if neccessary)
+	 * @param sg
+	 * @return
+	 */
+	protected void chewXY(StatementGroup sg) {
+		Value value;
+		for(Statement s : sg.getStatements()){
+			if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+				value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+				crunshXYValue(value);
+		}	}
+	}
+	
+	
+	/**
+	 * look for the z axis data
+	 * (override if neccessary)
+	 * @param sg
+	 * @return
+	 */
+	protected void chewZ(StatementGroup sg) {
+		Value value = null;
+		for(Statement s : sg.getStatements()){
+			if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+				value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+				crunshZValue(value);
+		}	}
+	}
+	
+	
+	/**
+	 * can be overriden to eat something at the beginning of swallowItemDocument
+	 * @param item
+	 */
+	protected void appetizer(ItemDocument item) {	}
+
+	
+	/**
+	 * can be overriden to eat something at the end of swallowItemDocument
+	 * @param item
+	 */
+	protected void dessert(ItemDocument item) { }
+	
+	
+	/**
+	 * ingest itemDocument to gain data
 	 * @param itemDocument
 	 */
 	public void swallowItemDocument(ItemDocument itemDocument) {
@@ -249,92 +278,61 @@ public class DataSet {
 		vxy = null;
 		vz = null;
 		
+		appetizer(itemDocument);
+		
 		if(group.getInstanceOf() == null) {
 			search = false;
 			wanted = true;
 		}
 		
 		for(StatementGroup sg : itemDocument.getStatementGroups()) {
-			if(search && !wanted) {
+			if(search && !wanted && sg.getProperty().getId().equals("P31")) {
 				wanted = checkInstanceOf(sg);
+			} else if (sg.getProperty().getId().equals(this.xyProp)) {
+				chewXY(sg);
+			} else if (sg.getProperty().getId().equals(this.zProp)) {
+				chewZ(sg);
 			}
-			chewXY(sg);
-			chewZ(sg);
 			//ItemDataProcessor.processItemDocument();
 			// TODO collect properties info?
 		}
 		
 		// add the data if we found both values
 		if(wanted && vxy != null && vz != null) {
-			GeoDat g = new GeoDat(vxy, itemDocument.getItemId());
+			// insert in data list
+			GeoDat g = new GeoDat(vxy, itemDocument.getItemId().getId());
 			if(!data.containsKey(vz)) {
 				data.put(vz, new HashSet<GeoDat>());
 			}
 			data.get(vz).add(g);
+			// adjust dataset stats
 			this.length++;
 			if(minz > vz) { minz = vz; }
 			if(maxz < vz) { maxz = vz; }
 			
-			
 			// build the properties mappings
-			if(!this.group.getPropMap().containsKey(itemDocument.getItemId())) {
+			if(!this.group.getPropMap().containsKey(itemDocument.getItemId().getId())) {
 				HashMap<Integer, String[]> propList = this.group.getPropList();
 				Integer propI = propList.size();
 				propList.put(propI, new String[]{itemDocument.getItemId().getId()}); // fill in properties (still just id..)
-				this.group.getPropMap().put(itemDocument.getItemId(), propI);
+				this.group.getPropMap().put(itemDocument.getItemId().getId(), propI);
 			}
 		}
+		dessert(itemDocument);
 	}
 	
 	private boolean checkInstanceOf(StatementGroup sg) {
 		Value value;
-		if(sg.getProperty().getId().equals("P31")) { // instance of
-			for(Statement s : sg.getStatements()) {
-				if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-					value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-					if(value instanceof ItemIdValue) {
-						if(this.group.getInstanceOf().equals(((ItemIdValue) value).getId())) {
-							return true;
-		}	}	}	}	}
+		for(Statement s : sg.getStatements()) {
+			if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+				value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+				if(value instanceof ItemIdValue) {
+					if(this.group.getInstanceOf().equals(((ItemIdValue) value).getId())) {
+						return true;
+		}	}	}	}
 		return false;
 	}
 	
-	/**
-	 * look for the geo data
-	 * @param sg
-	 * @return
-	 */
-	private void chewXY(StatementGroup sg) {
-		Value value;
-		Class xy = null;
-		if(sg.getProperty().getId().equals(this.xyProp)) {
-			for(Statement s : sg.getStatements()){
-				if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-					value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-					crunshXYValue(value);
-				}
-			}
-		}
-	}
-	
-	
-	/**
-	 * look for the z axis data
-	 * @param sg
-	 * @return
-	 */
-	private void chewZ(StatementGroup sg) {
-		Value value = null;
-		//ItemIdValue z;
-		if(sg.getProperty().getId().equals(this.zProp)) {
-			for(Statement s : sg.getStatements()){
-				if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-					value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
-					crunshZValue(value);
-				}
-			}
-		}
-	}
 	
 	public void excreteFile(int dataSetIndex, HashMap<String, GlobeCoordinatesValue> coords, String filename) {
 		digestData(coords);
@@ -365,7 +363,6 @@ public class DataSet {
 			dsg.writeEndArray();
 			dsg.close();
 		}  catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
 			digest = null; // can cut the reference to our excrete now. feel lighter!
@@ -382,32 +379,26 @@ public class DataSet {
 		for(int i = 0; i < GEO_TILE_COUNT; i++) {
 			digest[i] = new HashMap<Integer, Set<Double[]>>();
 		}
-		//Iterator<Integer> iter data.keySet().iterator();
 		for(Integer k : data.keySet()) {
-			//geodats = data.remove(k);
 			geodats = data.get(k);
 			for(GeoDat gd : geodats) {
-				cv = coords.get(gd.getLocation().getId());
+				cv = coords.get(gd.getLocation());
 				if(cv != null) {
 					propI = this.group.getPropMap().get(gd.getSubject());
 					
 					int tile = 0;
 					double lon = cv.getLongitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;
 					double lat = cv.getLatitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;
-					while(lon > (GEO_WMIN+(tile+1)*tileWidth)) {
-						tile++;
-					}
+					while(lon > (GEO_WMIN+(tile+1)*tileWidth)) { tile++; }
 					
 					// safety check
 					if(tile >= GEO_TILE_COUNT) {
 						System.out.println("### STRANGE VALUE: ");
-						System.out.println("### "+ gd.getSubject().getId() + " lon: " + lon + " lat: "+ lat);
+						System.out.println("### "+ gd.getSubject() + " lon: " + lon + " lat: "+ lat);
 						tile = GEO_TILE_COUNT - 1;
 					}
 					
 					if(!digest[tile].containsKey(k)) {
-						//HashSet<Double[]> dat = new HashSet<Double[]>();
-						//dat.add(new Double[]{lon,lat,propI.doubleValue()});
 						digest[tile].put(k, new HashSet<Double[]>());
 					}
 					digest[tile].get(k).add(new Double[]{lon,lat,propI.doubleValue()});

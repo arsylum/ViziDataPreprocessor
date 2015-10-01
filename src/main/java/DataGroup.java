@@ -3,8 +3,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
-
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -22,11 +20,11 @@ public class DataGroup {
 	
 	private Set<DataSet>	datasets;
 	
-	private HashMap<ItemIdValue, Integer> propMap;	// itemID  -> ref int
+	private HashMap<String, Integer> propMap;	// itemID  -> ref int
 	private HashMap<Integer, String[]> propList;	// ref int -> properties[]
 	
 	
-	public HashMap<ItemIdValue, Integer> getPropMap() {
+	public HashMap<String, Integer> getPropMap() {
 		return propMap;
 	}
 
@@ -86,7 +84,7 @@ public class DataGroup {
 	
 	private void initDatasets() {
 		datasets = new HashSet<DataSet>();
-		propMap = new HashMap<ItemIdValue, Integer>();
+		propMap = new HashMap<String, Integer>();
 		propList = new HashMap<Integer, String[]>();
 	}
 
@@ -102,7 +100,7 @@ public class DataGroup {
 		int i, length = this.propList.size();
 		
 		String filename = this.id + "_p.json";
-		System.out.print("****** Starting to write " +  filename + "...");
+		System.out.print("****** Starting to write file " +  filename + "...");
 		JsonFactory f = new JsonFactory();
 		try {
 			JsonGenerator g = f.createGenerator(new File(filename), JsonEncoding.UTF8);
