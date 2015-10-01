@@ -1,5 +1,6 @@
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -29,6 +30,10 @@ import org.wikidata.wdtk.dumpfiles.DumpProcessingController;
 import org.wikidata.wdtk.dumpfiles.MwRevision;
 import org.wikidata.wdtk.dumpfiles.MwRevisionProcessor;
 import org.wikidata.wdtk.dumpfiles.StatisticsMwRevisionProcessor;
+
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 
 /**
  * This program creates the JSON files for the ViziData Web Application
@@ -112,6 +117,8 @@ public class DataProcessor {
 			GEO_WMIN = -180,
 			GEO_WMAX = 180;
 		
+		
+		
 		/*private static final JSONObject DEFAULT_COLOR_SCALE = new JSONObject()
 			.put("min", new JSONArray()
 				.put(134).put(205).put(215))
@@ -120,12 +127,13 @@ public class DataProcessor {
 		
 		private int itemCount = 0;
 		
-		private DataGroup[] groups = new DataGroup[2];			// configuration
-		private Set<DataSet> dataSets = new HashSet<DataSet>(); // objects
+		//private DataGroup[] groups = new DataGroup[2];			// configuration
+		//private Set<DataSet> dataSets = new HashSet<DataSet>(); // objects
 		
+		private Set<DataGroup> groups = new HashSet<DataGroup>();
 		
-		DataSet itemSet = new DataSet();
-		DataSet popuSet = new DataSet();
+		//DataSet itemSet = new DataSet();
+		//DataSet popuSet = new DataSet();
 				
 		// all coordinate values
 		private HashMap<String,GlobeCoordinatesValue> coords = new HashMap<String,GlobeCoordinatesValue>(); // coordinates of items
@@ -142,52 +150,63 @@ public class DataProcessor {
 		 * WARNING: too many DataSets at once will cause excessive memory usage!
 		 */
 		private ItemDataProcessor() {
-			DataSet s;
+			
+	/*		
+			DataSet sss = new DataSet() {
+				@Override
+				public void digestItemDocument(ItemDocument itemDocument) {
+					System.out.println("test");
+				}
+			};*/
+			
+			
 			
 			// DataGroups
-			groups[0] = new DataGroup("humans","Humans","humans", "Q5");
-			groups[1] = new DataGroup("items", "Items", "items");
+			DataGroup g;
+			DataSet s;
+			HashMap<String, String> strings;
+			Set<KeyVal> options;
 			
-			// DataSets
-			s = new DataSet();
-				s.id = "birth";
-				s.group = groups[0];
-				s.geoProp = "P19";
-				s.timeProp = "P569";
-				s.strings = new JSONObject()
-					.put("label", "births")
-					.put("zprop", "Year")
-					.put("timelineToolTip", "%l in %x: %v")
-					.put("desc", "Place and time of birth")
-					.put("term", "between %l and %h");
-				s.options = new JSONObject()
-					.put("initSelection", new JSONObject()
-							.put("min", 1700)
-							.put("max", 2015));
-				//s.colorScale = DEFAULT_COLOR_SCALE; // TODO ditch color scale?
-			dataSets.add(s);
-				
-			s = new DataSet();
-				s.id = "death";
-				s.group = groups[0];
-				s.geoProp = "P20";
-				s.timeProp = "P570";
-				s.strings = new JSONObject()
-					.put("label", "deaths")
-					.put("zprop", "Year")
-					.put("timelineToolTip", "%l in %x: %v")
-					.put("desc", "Place and time of death")
-					.put("term", "between %l and %h");
-				s.options = new JSONObject()
-					.put("initSelection", new JSONObject()
-						.put("min", 1700)
-						.put("max", 2015));
-				/*s.colorScale = new JSONObject()
-					.put("min", new JSONArray()
-						.put(255).put(201).put(201))
-					.put("max", new JSONArray()
-						.put(10).put(0).put(0));*/
-			dataSets.add(s);
+			
+			//////////
+			// humans
+			g = new DataGroup("humans","Humans","humans", "Q5");
+			// births
+			s = new DataSet("birth", g, "P569", "P19");
+			strings =  new HashMap<String, String>();
+			strings.put("label", "births");
+			strings.put("zprop", "Years");
+			strings.put("timelineToolTip", "%l in %x: %v");
+			strings.put("desc", "Place and time of birth");
+			strings.put("term", "between %l and %h");
+			options = new HashSet<KeyVal>();
+			options.add(new KeyVal("initSelection")
+					.add(new KeyVal("min", 1700))
+					.add(new KeyVal("max", 2015)));
+			s.setStrings(strings).setOptions(options);
+			g.getDatasets().add(s);
+			
+			// deaths
+			s = new DataSet("death", g, "P570", "P20");
+			strings =  new HashMap<String, String>();
+			strings.put("label", "deaths");
+			strings.put("zprop", "Year");
+			strings.put("timelineToolTip", "%l in %x: %v");
+			strings.put("desc", "Place and time of death");
+			strings.put("term", "between %l and %h");
+			options = new HashSet<KeyVal>();
+			options.add(new KeyVal("initSelection")
+					.add(new KeyVal("min", 1700))
+					.add(new KeyVal("max", 2015)));
+			s.setStrings(strings).setOptions(options);
+			g.getDatasets().add(s);
+			
+			groups.add(g);
+			
+			/////////
+			// Items
+			//g = new DataGroup("items", "Items", "items");
+			
 			
 			/*s = new DataSet();
 				s.id = "pubs";
@@ -206,7 +225,7 @@ public class DataProcessor {
 			dataSets.add(s);*/
 			
 			// itemSet is calculated semi hardcode
-			itemSet.id = "items";
+		/*	itemSet.id = "items";
 			itemSet.strings = new JSONObject()
 				.put("label", "items")
 				.put("zprop", "Sitelinks")
@@ -229,7 +248,7 @@ public class DataProcessor {
 			popuSet.options = new JSONObject()
 				.put("initSelection", new JSONObject()
 					.put("min", 0)
-					.put("max", 1000000));
+					.put("max", 1000000));*/
 		}
 		
 		/**
@@ -241,19 +260,45 @@ public class DataProcessor {
 			
 			ItemIdValue subj = itemDocument.getItemId();	// this item
 			Value value = null; 							// all purpose value obj
-			boolean matching_target = false;				// instanceOf flag
-			ItemIdValue geoVal;								
-			TimeValue	timeVal;
+			//boolean matching_target = false;				// instanceOf flag
+			//ItemIdValue geoVal;								
+			//TimeValue	timeVal;
 			
 			
-			Map<String,MonolingualTextValue> labels = itemDocument.getLabels();
+			// construct list of all language labels
+			/*Map<String,MonolingualTextValue> labels = itemDocument.getLabels();
 			for(String s : labels.keySet()) {
 				if(!langcodes.contains(s)) {
 					langcodes.add(s);
 				}
+			}*/
+			
+			// let each DataSet munch on the item
+			for(DataGroup g : groups) {
+				for(DataSet d : g.getDatasets()) {
+					d.swallowItemDocument(itemDocument);
+				}
 			}
 			
-			for(DataSet d : dataSets) {
+			for(StatementGroup sg : itemDocument.getStatementGroups()) {
+				// collect itemId -> coordinateValue associations
+				if(!coords.containsKey(subj.getId())) {
+					if(sg.getProperty().getId().equals("P625")) { // coordinate location
+						for(Statement s : sg.getStatements()){
+							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+								if(value instanceof GlobeCoordinatesValue) {
+									coords.put(subj.getId(), (GlobeCoordinatesValue) value);
+									//itemSet.time.put(subj.getId(), (long)itemDocument.getSiteLinks().size());
+				}	}	}	}	}
+			}
+			
+			itemCount++;
+			if(itemCount%100000 == 0) {
+				printStatus();
+			}
+			
+			/*for(DataSet d : dataSets) {
 				// init vars
 				matching_target = (d.group.instanceOf == null);
 				geoVal = null;
@@ -334,14 +379,9 @@ public class DataProcessor {
 					// TODO so what about collecting other information?
 					d.geo.put(subj.getId(), geoVal.getId());
 					d.time.put(subj.getId(), timeVal.getYear());
-				}
+				}*/
+			
 				
-				itemCount++;
-				if(itemCount%100000 == 0) {
-					printStatus();
-				}
-				
-			}
 		}
 
 		@Override
@@ -366,7 +406,7 @@ public class DataProcessor {
 			
 			// make itemSet ready
 			// very dirty workaround
-			for(String s : coords.keySet()) { 
+			/*for(String s : coords.keySet()) { 
 				itemSet.geo.put(s,s);	
 				popuSet.geo.put(s,s);
 				
@@ -375,16 +415,16 @@ public class DataProcessor {
 			dataSets.add(itemSet);
 			
 			popuSet.group = groups[1];
-			dataSets.add(popuSet);
+			dataSets.add(popuSet);*/
 			
 			
 			System.out.println("*** Finished the dump!");
-			System.out.println("*** List of all discovered languace codes:");
-			for(String s : langcodes) {
-				System.out.println(s);
-			}
+//			System.out.println("*** List of all discovered languace codes:");
+//			for(String s : langcodes) {
+//				System.out.println(s);
+//			}
 			System.out.println("*** ");
-			System.out.println("*** Let me build the files for you real quick...");	
+			System.out.println("*** Let;s put everything together...");	
 			buildData();
 			System.out.println("*** There you go!");
 			
@@ -394,6 +434,109 @@ public class DataProcessor {
 		 * builds the collected data into JSONObjects and writes them to the disk
 		 */
 		private void buildData() {
+			
+			/*
+			 * System.out.print("*** writing file "+filename+" to disk...");
+			Writer writer = null;
+			try {
+			    writer = new BufferedWriter(new OutputStreamWriter(
+			          new FileOutputStream(filename), "utf-8"));
+			    j.write(writer);
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			} finally {
+			   try {
+				   writer.close();
+				   System.out.println("done.");
+			   } catch (Exception ex) {
+				   ex.printStackTrace();
+			   }
+			 */
+			
+			JsonFactory f = new JsonFactory();
+			JsonGenerator g;
+			int dataSetIndex;
+			
+			for(DataGroup dg : groups) {
+				
+				
+				dataSetIndex = -1;
+				String gfilename = dg.getId() + ".json";
+				
+				try {
+					System.out.println("*** Starting to write file "+gfilename+"...");
+					g = f.createGenerator(new File(gfilename), JsonEncoding.UTF8);
+					
+					g.writeStartObject();
+					g.writeStringField("id", dg.getId());
+					g.writeStringField("title", dg.getTitle());
+					g.writeStringField("label", dg.getLabel());
+					g.writeStringField("properties", dg.getId() + "_p.json");
+					// propfile "properties"
+					
+					// TODO write properties file
+					g.writeArrayFieldStart("datasets");
+					for(DataSet ds : dg.getDatasets()) {
+						dataSetIndex++;
+						String datFilename = dg.getId() + "_d"+String.format("%02d", dataSetIndex) + ".json";
+						ds.excreteFile(dataSetIndex, coords, datFilename);
+						
+						// write metadata
+						g.writeStartObject();
+						g.writeStringField("id", ds.getId());
+						g.writeNumberField("total_points", ds.getLength());
+						g.writeNumberField("min", ds.getMiny());
+						g.writeNumberField("max", ds.getMaxy());
+						//g.writeNumberField("maxEventCount", ds.get?);
+						g.writeObjectFieldStart("strings");
+						for(Entry<String,String> e : ds.getStrings().entrySet()) {
+							g.writeStringField(e.getKey(), e.getValue());
+						}
+						g.writeEndObject();
+						g.writeObjectFieldStart("options");
+						for(KeyVal kv : ds.getOptions()) {
+							// TODO flexible?
+							g.writeObjectFieldStart(kv.getKey());
+							for(KeyVal kkv : kv.getKeyvals()) {
+								g.writeStringField(kkv.getKey(), kkv.getVal().toString());
+							}
+							g.writeEndObject();
+						}
+						g.writeEndObject();
+						g.writeStringField("file", datFilename);
+						
+						g.writeEndObject();
+					}
+					g.writeEndArray();
+					g.writeEndObject();
+					g.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					System.out.println("*** Finished writing file "+gfilename);
+				}
+			}
+		}
+			
+			/*
+			 *    1 JsonFactory f = new JsonFactory();
+   2 JsonGenerator g = f.createJsonGenerator(new File("user.json"));
+   3 
+   4 g.writeStartObject();
+   5 g.writeObjectFieldStart("name");
+   6 g.writeStringField("first", "Joe");
+   7 g.writeStringField("last", "Sixpack");
+   8 g.writeEndObject(); // for field 'name'
+   9 g.writeStringField("gender", Gender.MALE);
+  10 g.writeBooleanField("verified", false);
+  11 g.writeFieldName("userImage"); // no 'writeBinaryField' (yet?)
+  12 byte[] binaryData = ...;
+  13 g.writeBinary(binaryData);
+  14 g.writeEndObject();
+  15 g.close(); // important: will force flushing of output, close underlying output stream
+  
+			 */
+			/*
 			GlobeCoordinatesValue cv;
 			Long tv;
 			
