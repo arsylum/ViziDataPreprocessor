@@ -85,8 +85,8 @@ public class DataSet {
 	
 	private DataGroup 	group;
 	
-	private double		miny,
-						maxy;
+	private double		minz,
+						maxz;
 						//maxEventCount;
 	
 	private Integer		length;
@@ -123,23 +123,23 @@ public class DataSet {
 	}
 
 
-	public double getMiny() {
-		return miny;
+	public double getMinz() {
+		return minz;
 	}
 
 
-	public void setMiny(double miny) {
-		this.miny = miny;
+	public void setMinz(double miny) {
+		this.minz = miny;
 	}
 
 
-	public double getMaxy() {
-		return maxy;
+	public double getMaxz() {
+		return maxz;
 	}
 
 
-	public void setMaxy(double maxy) {
-		this.maxy = maxy;
+	public void setMaxz(double maxy) {
+		this.maxz = maxy;
 	}
 
 
@@ -211,6 +211,8 @@ public class DataSet {
 //		this.time = new HashMap<String,Long>();
 			
 		this.length = 0;
+		this.minz = Double.POSITIVE_INFINITY;
+		this.maxz = Double.NEGATIVE_INFINITY;
 	}
 	
 	
@@ -270,6 +272,9 @@ public class DataSet {
 			}
 			data.get(vz).add(g);
 			this.length++;
+			if(minz > vz) { minz = vz; }
+			if(maxz < vz) { maxz = vz; }
+			
 			
 			// build the properties mappings
 			if(!this.group.getPropMap().containsKey(itemDocument.getItemId())) {
@@ -335,6 +340,7 @@ public class DataSet {
 		digestData(coords);
 		
 		JsonFactory f = new JsonFactory();
+		System.out.print("****** Starting to write file "+filename+" ...");
 		try {
 			JsonGenerator dsg = f.createGenerator(
 					new File(filename),
@@ -363,6 +369,7 @@ public class DataSet {
 			e.printStackTrace();
 		} finally {
 			digest = null; // can cut the reference to our excrete now. feel lighter!
+			System.out.println("done!");
 		}
 	}
 	
@@ -399,12 +406,13 @@ public class DataSet {
 					}
 					
 					if(!digest[tile].containsKey(k)) {
-						HashSet<Double[]> dat = new HashSet<Double[]>();
-						dat.add(new Double[]{lon,lat,propI.doubleValue()});
-						digest[tile].put(k, dat);
+						//HashSet<Double[]> dat = new HashSet<Double[]>();
+						//dat.add(new Double[]{lon,lat,propI.doubleValue()});
+						digest[tile].put(k, new HashSet<Double[]>());
 					}
+					digest[tile].get(k).add(new Double[]{lon,lat,propI.doubleValue()});
 				} else {
-					System.out.println("No coords for item "+ gd.getSubject().getId()+ " at location "+gd.getLocation().getId());
+					//System.out.println("No coords for item "+ gd.getSubject().getId()+ " at location "+gd.getLocation().getId());
 				}
 			}
 		}

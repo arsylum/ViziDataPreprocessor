@@ -175,7 +175,7 @@ public class DataProcessor {
 			s = new DataSet("birth", g, "P569", "P19");
 			strings =  new HashMap<String, String>();
 			strings.put("label", "births");
-			strings.put("zprop", "Years");
+			strings.put("zprop", "Year");
 			strings.put("timelineToolTip", "%l in %x: %v");
 			strings.put("desc", "Place and time of birth");
 			strings.put("term", "between %l and %h");
@@ -424,7 +424,7 @@ public class DataProcessor {
 //				System.out.println(s);
 //			}
 			System.out.println("*** ");
-			System.out.println("*** Let;s put everything together...");	
+			System.out.println("*** Let's put everything together...");	
 			buildData();
 			System.out.println("*** There you go!");
 			
@@ -472,9 +472,13 @@ public class DataProcessor {
 					g.writeStringField("title", dg.getTitle());
 					g.writeStringField("label", dg.getLabel());
 					g.writeStringField("properties", dg.getId() + "_p.json");
+					g.writeNumberField("tile_width", 10); // TODO move to dataset (requires change in frontend)
 					// propfile "properties"
 					
 					// TODO write properties file
+					dg.excretePropertiesFile();
+					
+					
 					g.writeArrayFieldStart("datasets");
 					for(DataSet ds : dg.getDatasets()) {
 						dataSetIndex++;
@@ -485,8 +489,8 @@ public class DataProcessor {
 						g.writeStartObject();
 						g.writeStringField("id", ds.getId());
 						g.writeNumberField("total_points", ds.getLength());
-						g.writeNumberField("min", ds.getMiny());
-						g.writeNumberField("max", ds.getMaxy());
+						g.writeNumberField("min", ds.getMinz());
+						g.writeNumberField("max", ds.getMaxz());
 						//g.writeNumberField("maxEventCount", ds.get?);
 						g.writeObjectFieldStart("strings");
 						for(Entry<String,String> e : ds.getStrings().entrySet()) {

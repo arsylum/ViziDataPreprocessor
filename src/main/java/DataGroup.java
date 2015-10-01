@@ -102,7 +102,7 @@ public class DataGroup {
 		int i, length = this.propList.size();
 		
 		String filename = this.id + "_p.json";
-		System.out.print("*** Starting to write " +  filename + "...");
+		System.out.print("****** Starting to write " +  filename + "...");
 		JsonFactory f = new JsonFactory();
 		try {
 			JsonGenerator g = f.createGenerator(new File(filename), JsonEncoding.UTF8);
