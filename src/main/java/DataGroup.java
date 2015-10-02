@@ -1,6 +1,8 @@
 import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonEncoding;
@@ -20,18 +22,20 @@ public class DataGroup {
 	
 	private Set<DataSet>	datasets;
 	
-	private HashMap<String, Integer> propMap;	// itemID  -> ref int
-	private HashMap<Integer, String[]> propList;	// ref int -> properties[]
+	
+	//private HashMap<Integer, String[]> propList;	// ref int -> properties[]
+	//private Set test = new LinkedHashMap();
+	private HashMap<ItemIntValue, String[]> propList;
+	private HashMap<ItemIntValue, Integer> propMap;	// itemID  -> ref int
 	
 	
-	public HashMap<String, Integer> getPropMap() {
+	public HashMap<ItemIntValue, Integer> getPropMap() {
 		return propMap;
 	}
 
-	public HashMap<Integer, String[]> getPropList() {
+	public HashMap<ItemIntValue, String[]> getPropList() {
 		return propList;
 	}
-
 	
 	
 	public String getId() {
@@ -84,8 +88,8 @@ public class DataGroup {
 	
 	private void initDatasets() {
 		datasets = new HashSet<DataSet>();
-		propMap = new HashMap<String, Integer>();
-		propList = new HashMap<Integer, String[]>();
+		//propMap = new HashMap<ItemIntValue, Integer>();
+		propList = new HashMap<ItemIntValue, String[]>();
 	}
 
 	public Set<DataSet> getDatasets() {
@@ -97,7 +101,10 @@ public class DataGroup {
 	}
 	
 	public void excretePropertiesFile(){
-		int i, length = this.propList.size();
+		int i; //length = this.propList.size();
+		propMap = new HashMap<ItemIntValue, Integer>();
+		Entry<ItemIntValue, String[]> entry;
+		Iterator<HashMap.Entry<ItemIntValue, String[]>> iter = this.propList.entrySet().iterator();
 		
 		String filename = this.id + "_p.json";
 		System.out.print("****** Starting to write file " +  filename + "...");
@@ -108,13 +115,20 @@ public class DataGroup {
 			g.writeArrayFieldStart("properties");
 				g.writeString("id");
 			g.writeEndArray();
+			i = -1;
 			g.writeArrayFieldStart("members");
-			for(i=0; i<length; ++i) {
+			while(iter.hasNext()) {
+				
+			//for(i=0; i<length; ++i) {
+				entry = iter.next();
+				
 				g.writeStartArray();
-				for(String s : this.getPropList().get(i)) {
+				for(String s : entry.getValue()) { // this.getPropList().get(i)) {
 					g.writeString(s);
 				}
 				g.writeEndArray();
+				propMap.put(entry.getKey(), ++i);
+				iter.remove();
 			}
 			g.writeEndArray();
 			g.writeEndObject();

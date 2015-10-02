@@ -1,28 +1,38 @@
 
 
 public class GeoDat {
-	private String 	location,
-					subject;
+	private ItemIntValue 	location,
+							subject;
+	private Integer			key;
 
-	public String getLocation() {
+	public Integer getKey() {
+		return key;
+	}
+
+	public void setKey(Integer key) {
+		this.key = key;
+	}
+
+	public ItemIntValue getLocation() {
 		return location;
 	}
 
-	public void setLocation(String location) {
+	public void setLocation(ItemIntValue location) {
 		this.location = location;
 	}
 
-	public String getSubject() {
+	public ItemIntValue getSubject() {
 		return subject;
 	}
 
-	public void setSubject(String subject) {
+	public void setSubject(ItemIntValue subject) {
 		this.subject = subject;
 	}
 	
-	public GeoDat(String loc, String subj) {
+	public GeoDat(ItemIntValue loc, ItemIntValue subj, Integer key) {
 		this.location = loc;
 		this.subject = subj;
+		this.key = key;
 	}
 	
 }

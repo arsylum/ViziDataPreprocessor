@@ -8,7 +8,6 @@ import java.util.Set;
 import org.wikidata.wdtk.datamodel.interfaces.EntityDocumentProcessor;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
-import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
 import org.wikidata.wdtk.datamodel.interfaces.PropertyDocument;
 import org.wikidata.wdtk.datamodel.interfaces.QuantityValue;
 import org.wikidata.wdtk.datamodel.interfaces.Statement;
@@ -79,14 +78,17 @@ public class DataProcessor {
 		System.out.println("*** ViziData Dump Data Extractor V0.3");
 		System.out.println("***");
 		System.out.println("*** This program will chew on Wikidatas data and create");
-		System.out.println("*** the JSON files that can be feed to the ViziData web application.");
+		System.out.println("*** the JSON files that can be fed to the ViziData web application.");
 		System.out.println("***");
-		System.out.println("*** The data to extract is defined in the private constructor of");
+		System.out.println("*** The data to produce is defined in the private constructor of");
 		System.out.println("*** ItemDataProcessors by instances of (sub)class DataSet.");
 		System.out.println("***");
-		System.out.println("*** The programm is not performance optimized and memory usage");
-		System.out.println("*** can be huge, especially with multiple DataSets.");
-		System.out.println("*** Heapsize of 3GB is recommended. (-Xmx3072M)");
+		System.out.println("*** The program makes an effort to minimize memory usage but still");
+		System.out.println("*** it can fill up rather quickly with all this data.");
+		System.out.println("*** Giving at least ~500MB heap space per DataSet should be considered.");
+		System.out.println("***");
+		System.out.println("*** If you can afford, grant a bigger heapsize to give");
+		System.out.println("*** the garbage collector some space to relax. (e.g. -Xmx4096M");
 		System.out.println("********************************************************************");
 	}
 
@@ -104,7 +106,7 @@ public class DataProcessor {
 		
 		private Set<DataGroup> groups = new HashSet<DataGroup>();		
 		// all coordinate values
-		private HashMap<String,GlobeCoordinatesValue> coords = new HashMap<String,GlobeCoordinatesValue>(); // coordinates of items
+		private HashMap<ItemIntValue,GlobeCoordinatesValue> coords = new HashMap<ItemIntValue,GlobeCoordinatesValue>(); // coordinates of items
 		
 		// collect language codes
 		//Set<String> langcodes = new TreeSet<String>();
@@ -171,7 +173,7 @@ public class DataProcessor {
 					for(Statement s : sg.getStatements()){
 						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
 							if(((ValueSnak) s.getClaim().getMainSnak()).getValue() instanceof GlobeCoordinatesValue) {
-								setVxy(sg.getSubject().getId());
+								setVxy(new ItemIntValue(sg.getSubject().getId()));
 								return;
 				}	}	}	}
 			};
@@ -184,7 +186,7 @@ public class DataProcessor {
 			options = new HashSet<KeyVal>();
 			options.add(new KeyVal("initSelection")
 					.add(new KeyVal("min", 0))
-					.add(new KeyVal("max", 336)));
+					.add(new KeyVal("max", 338)));
 			s.setStrings(strings).setOptions(options);
 			g.getDatasets().add(s);
 			// placeSet
@@ -200,7 +202,7 @@ public class DataProcessor {
 					for(Statement s : sg.getStatements()){
 						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
 							if(((ValueSnak) s.getClaim().getMainSnak()).getValue() instanceof GlobeCoordinatesValue) {
-								setVxy(sg.getSubject().getId());
+								setVxy(new ItemIntValue(sg.getSubject().getId()));
 								return;
 				}	}	}	}
 			};
@@ -227,7 +229,8 @@ public class DataProcessor {
 		@Override
 		public void processItemDocument(ItemDocument itemDocument) {
 			
-			ItemIdValue subj = itemDocument.getItemId();	// this item
+			//ItemIdValue subj = itemDocument.getItemId();	// this item
+			ItemIntValue id = new ItemIntValue(itemDocument.getItemId().getId());
 			Value value = null; 							// all purpose value obj
 			
 			// construct list of all language labels
@@ -245,7 +248,7 @@ public class DataProcessor {
 				}
 			}
 			
-			if(!coords.containsKey(subj.getId())) {
+			if(!coords.containsKey(id)) {
 				sgloop:
 				for(StatementGroup sg : itemDocument.getStatementGroups()) {
 					// collect itemId -> coordinateValue associations
@@ -254,7 +257,7 @@ public class DataProcessor {
 							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
 								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
 								if(value instanceof GlobeCoordinatesValue) {
-									coords.put(subj.getId(), (GlobeCoordinatesValue) value);
+									coords.put(id, (GlobeCoordinatesValue) value);
 									break sgloop;
 				}	}	}	}	}
 			}
