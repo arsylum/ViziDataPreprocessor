@@ -329,7 +329,7 @@ public class DataSet {
 	}
 	
 	
-	public void excreteFile(int dataSetIndex, HashMap<ItemIntValue, GlobeCoordinatesValue> coords, String filename) {
+	public void excreteFile(int dataSetIndex, HashMap<ItemIntValue, CoordinatesValue> coords, String filename) {
 		digestData(coords);
 		
 		JsonFactory f = new JsonFactory();
@@ -366,9 +366,9 @@ public class DataSet {
 		}
 	}
 	
-	private void digestData(HashMap<ItemIntValue, GlobeCoordinatesValue> coords) {
+	private void digestData(HashMap<ItemIntValue, CoordinatesValue> coords) {
 		int tileWidth = (GEO_WMAX - GEO_WMIN) / GEO_TILE_COUNT;
-		GlobeCoordinatesValue cv;
+		CoordinatesValue cv;
 		Integer propI;
 		digest = new HashMap[GEO_TILE_COUNT];
 		for(int i = 0; i < GEO_TILE_COUNT; i++) {
@@ -377,12 +377,12 @@ public class DataSet {
 
 		for(GeoDat gd : data) {
 			cv = coords.get(gd.getLocation());
-			if(cv != null && cv.getGlobe().equals(GlobeCoordinatesValue.GLOBE_EARTH)) {
+			if(cv != null) {
 				propI = this.group.getPropMap().get(gd.getSubject());
 				
 				int tile = 0;
-				double lon = cv.getLongitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;
-				double lat = cv.getLatitude()/(double)GlobeCoordinatesValue.PREC_DEGREE;
+				double lon = cv.getLon()/(double)GlobeCoordinatesValue.PREC_DEGREE;
+				double lat = cv.getLat()/(double)GlobeCoordinatesValue.PREC_DEGREE;
 				while(lon > (GEO_WMIN+(tile+1)*tileWidth)) { tile++; }
 				
 				// safety check

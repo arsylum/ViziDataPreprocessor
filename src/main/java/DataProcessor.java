@@ -8,12 +8,14 @@ import java.util.Set;
 import org.wikidata.wdtk.datamodel.interfaces.EntityDocumentProcessor;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
+import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
 import org.wikidata.wdtk.datamodel.interfaces.PropertyDocument;
 import org.wikidata.wdtk.datamodel.interfaces.QuantityValue;
 import org.wikidata.wdtk.datamodel.interfaces.Statement;
 import org.wikidata.wdtk.datamodel.interfaces.StatementGroup;
 import org.wikidata.wdtk.datamodel.interfaces.Value;
 import org.wikidata.wdtk.datamodel.interfaces.ValueSnak;
+import org.wikidata.wdtk.dumpfiles.DumpContentType;
 import org.wikidata.wdtk.dumpfiles.DumpProcessingController;
 import org.wikidata.wdtk.dumpfiles.MwRevision;
 import org.wikidata.wdtk.dumpfiles.MwRevisionProcessor;
@@ -41,6 +43,17 @@ public class DataProcessor {
 
 		// Print information about this program
 		printDocumentation();
+		
+//		Set<ItemIntValue> testSet = new HashSet<ItemIntValue>();
+		
+//		for(Integer i = 0; i < 100000000; i++) {
+//			testSet.add(new ItemIntValue("Q"+i.toString()));
+//			if(i%1000000 == 0) {
+//				System.out.println("made "+i+" ItemIntValues");
+//			}
+//		}
+//		
+//		System.out.println("generated useless testset");
 
 		// Controller object for processing dumps:
 		DumpProcessingController dumpProcessingController = new DumpProcessingController(
@@ -66,7 +79,10 @@ public class DataProcessor {
 		// Process all recent dumps (including daily dumps as far as avaiable)
 		dumpProcessingController.processMostRecentJsonDump();
 		
-		edpItemStats.finishProcessingEntityDocuments();
+		
+		
+		edpItemStats.finishProcessingEntityDocuments(
+				dumpProcessingController.getMostRecentDump(DumpContentType.JSON).getDateStamp());
 	}
 
 	/**
@@ -88,7 +104,7 @@ public class DataProcessor {
 		System.out.println("*** Giving at least ~500MB heap space per DataSet should be considered.");
 		System.out.println("***");
 		System.out.println("*** If you can afford, grant a bigger heapsize to give");
-		System.out.println("*** the garbage collector some space to relax. (e.g. -Xmx4096M");
+		System.out.println("*** the garbage collector some space to relax. (e.g. -Xmx4096M)");
 		System.out.println("********************************************************************");
 	}
 
@@ -106,7 +122,9 @@ public class DataProcessor {
 		
 		private Set<DataGroup> groups = new HashSet<DataGroup>();		
 		// all coordinate values
-		private HashMap<ItemIntValue,GlobeCoordinatesValue> coords = new HashMap<ItemIntValue,GlobeCoordinatesValue>(); // coordinates of items
+		private HashMap<ItemIntValue,CoordinatesValue> coords = new HashMap<ItemIntValue,CoordinatesValue>(); // coordinates of items
+		// all located in administrative territorial entity
+		private HashMap<ItemIntValue, ItemIntValue> administratives = new HashMap<ItemIntValue, ItemIntValue>();
 		
 		// collect language codes
 		//Set<String> langcodes = new TreeSet<String>();
@@ -229,6 +247,7 @@ public class DataProcessor {
 		@Override
 		public void processItemDocument(ItemDocument itemDocument) {
 			
+			
 			//ItemIdValue subj = itemDocument.getItemId();	// this item
 			ItemIntValue id = new ItemIntValue(itemDocument.getItemId().getId());
 			Value value = null; 							// all purpose value obj
@@ -248,7 +267,29 @@ public class DataProcessor {
 				}
 			}
 			
-			if(!coords.containsKey(id)) {
+			// collect information for location associations
+			for(StatementGroup sg : itemDocument.getStatementGroups()) {
+				if(!coords.containsKey(id)) {
+					if(sg.getProperty().getId().equals("P625")) { // coordinate location
+						for(Statement s : sg.getStatements()){
+							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+								if(value instanceof GlobeCoordinatesValue) {
+									if(((GlobeCoordinatesValue) value).getGlobe().equals(GlobeCoordinatesValue.GLOBE_EARTH)) {
+										coords.put(id, new CoordinatesValue(
+												((GlobeCoordinatesValue) value).getLatitude(),
+												((GlobeCoordinatesValue) value).getLongitude()));
+				}	}	}	}	}	}
+				if(!administratives.containsKey(id)) {
+					if(sg.getProperty().getId().equals("P131")) { // located in the administrative territorial entity
+						for(Statement s : sg.getStatements()){
+							if(s.getClaim().getMainSnak() instanceof ValueSnak) {
+								value = ((ValueSnak) s.getClaim().getMainSnak()).getValue();
+								if(value instanceof ItemIdValue) {
+									administratives.put(id, new ItemIntValue(((ItemIdValue) value).getId()));
+				}	}	}	}	}
+			}
+			/*if(!coords.containsKey(id) || !administratives.containsKey(id)) {
 				sgloop:
 				for(StatementGroup sg : itemDocument.getStatementGroups()) {
 					// collect itemId -> coordinateValue associations
@@ -260,7 +301,7 @@ public class DataProcessor {
 									coords.put(id, (GlobeCoordinatesValue) value);
 									break sgloop;
 				}	}	}	}	}
-			}
+			}*/
 			
 			itemCount++;
 			if(itemCount%100000 == 0) {
@@ -279,12 +320,13 @@ public class DataProcessor {
 		private void printStatus() {
 			System.out.println("processed "+itemCount+" items so far...");
 			// TODO some informative output may be nice?
-			System.out.println("...(also got "+coords.size()+" location-coordinate mappings)");
+			System.out.println("...(also got "+coords.size()+" location-coordinate mappings");
+			System.out.println("    and "+administratives.size()+" P131 mappings)");
 			System.out.println("");
 		}
 
 		//@Override
-		public void finishProcessingEntityDocuments() {
+		public void finishProcessingEntityDocuments(String dateStamp) {
 			
 			System.out.println("*** Finished the dump!");
 			
@@ -295,14 +337,14 @@ public class DataProcessor {
 			
 			System.out.println("*** ");
 			System.out.println("*** Let's put everything together...");	
-			buildData();
+			buildData(dateStamp);
 			System.out.println("*** There you go!");
 		}
 
 		/**
 		 * builds the collected data into JSONObjects and writes them to the disk
 		 */
-		private void buildData() {
+		private void buildData(String dateStamp) {
 			
 			JsonFactory f = new JsonFactory();
 			JsonGenerator g;
@@ -340,6 +382,7 @@ public class DataProcessor {
 						g.writeNumberField("total_points", ds.getLength());
 						g.writeNumberField("min", ds.getMinz());
 						g.writeNumberField("max", ds.getMaxz());
+						g.writeStringField("dump_date", dateStamp);
 						//g.writeNumberField("maxEventCount", ds.get?);
 						g.writeObjectFieldStart("strings");
 						for(Entry<String,String> e : ds.getStrings().entrySet()) {
