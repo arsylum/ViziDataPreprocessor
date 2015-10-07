@@ -190,7 +190,9 @@ public class DataProcessor {
 				protected void chewXY(StatementGroup sg) {
 					for(Statement s : sg.getStatements()){
 						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							if(((ValueSnak) s.getClaim().getMainSnak()).getValue() instanceof GlobeCoordinatesValue) {
+							ValueSnak vs = (ValueSnak) s.getClaim().getMainSnak();
+							if(vs.getValue() instanceof GlobeCoordinatesValue &&
+							((GlobeCoordinatesValue) vs.getValue()).getGlobe().equals(GlobeCoordinatesValue.GLOBE_EARTH)) {
 								setVxy(new ItemIntValue(sg.getSubject().getId()));
 								return;
 				}	}	}	}
@@ -219,7 +221,9 @@ public class DataProcessor {
 				protected void chewXY(StatementGroup sg) {
 					for(Statement s : sg.getStatements()){
 						if(s.getClaim().getMainSnak() instanceof ValueSnak) {
-							if(((ValueSnak) s.getClaim().getMainSnak()).getValue() instanceof GlobeCoordinatesValue) {
+							ValueSnak vs = (ValueSnak) s.getClaim().getMainSnak();
+							if(vs.getValue() instanceof GlobeCoordinatesValue &&
+							((GlobeCoordinatesValue) vs.getValue()).getGlobe().equals(GlobeCoordinatesValue.GLOBE_EARTH)) {
 								setVxy(new ItemIntValue(sg.getSubject().getId()));
 								return;
 				}	}	}	}
@@ -374,14 +378,14 @@ public class DataProcessor {
 					for(DataSet ds : dg.getDatasets()) {
 						dataSetIndex++;
 						String datFilename = dg.getId() + "_d"+String.format("%02d", dataSetIndex) + ".json";
-						ds.excreteFile(dataSetIndex, coords, datFilename);
+						ds.excreteFile(dataSetIndex, coords, administratives, datFilename);
 						
 						// write metadata
 						g.writeStartObject();
 						g.writeStringField("id", ds.getId());
 						g.writeNumberField("total_points", ds.getLength());
-						g.writeNumberField("min", ds.getMinz());
-						g.writeNumberField("max", ds.getMaxz());
+						g.writeNumberField("min", ((Double) ds.getMinz()).intValue());
+						g.writeNumberField("max", ((Double) ds.getMaxz()).intValue());
 						g.writeStringField("dump_date", dateStamp);
 						//g.writeNumberField("maxEventCount", ds.get?);
 						g.writeObjectFieldStart("strings");

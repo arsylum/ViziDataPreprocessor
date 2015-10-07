@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
 import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
@@ -302,11 +303,6 @@ public class DataSet {
 			// insert in data list
 			data.add(new GeoDat(vxy, id, vz));
 			
-			// adjust dataset stats
-			this.length++;
-			if(minz > vz) { minz = vz; }
-			if(maxz < vz) { maxz = vz; }
-			
 			// build the properties mappings
 			HashMap<ItemIntValue, String[]> propList = this.group.getPropList();
 			if(!propList.containsKey(id)) {
@@ -329,8 +325,8 @@ public class DataSet {
 	}
 	
 	
-	public void excreteFile(int dataSetIndex, HashMap<ItemIntValue, CoordinatesValue> coords, String filename) {
-		digestData(coords);
+	public void excreteFile(int dataSetIndex, HashMap<ItemIntValue, CoordinatesValue> coords, HashMap<ItemIntValue,ItemIntValue> administratives, String filename) {
+		digestData(coords, administratives);
 		
 		JsonFactory f = new JsonFactory();
 		System.out.print("****** Starting to write file "+filename+" ...");
@@ -366,17 +362,22 @@ public class DataSet {
 		}
 	}
 	
-	private void digestData(HashMap<ItemIntValue, CoordinatesValue> coords) {
+	private void digestData(HashMap<ItemIntValue, CoordinatesValue> coords, HashMap<ItemIntValue,ItemIntValue> administratives) {
 		int tileWidth = (GEO_WMAX - GEO_WMIN) / GEO_TILE_COUNT;
 		CoordinatesValue cv;
 		Integer propI;
+		ItemIntValue id;
 		digest = new HashMap[GEO_TILE_COUNT];
 		for(int i = 0; i < GEO_TILE_COUNT; i++) {
 			digest[i] = new HashMap<Integer, Set<Double[]>>();
 		}
 
 		for(GeoDat gd : data) {
-			cv = coords.get(gd.getLocation());
+			id = gd.getLocation();
+			do {
+				cv = coords.get(id);
+				id = administratives.get(id);
+			} while (cv == null && id != null);
 			if(cv != null) {
 				propI = this.group.getPropMap().get(gd.getSubject());
 				
@@ -387,16 +388,22 @@ public class DataSet {
 				
 				// safety check
 				if(tile >= GEO_TILE_COUNT) {
-					System.out.println("###################");
-					System.out.println("### STRANGE VALUE: ");
-					System.out.println("### "+ gd.getSubject().getId() + " lon: " + lon + " lat: "+ lat);
-					tile = GEO_TILE_COUNT - 1;
+					System.out.println("###########################################");
+					System.out.println("### WARN dropping value outside of scope: ");
+					System.out.println("### "+ gd.getSubject().getId() + ", lon: " + lon + ", lat: "+ lat);
+					System.out.println("###########################################");
+				} else {
+					// adjust dataset stats
+					this.length++;
+					if(minz > gd.getKey()) { minz = gd.getKey(); }
+					if(maxz < gd.getKey()) { maxz = gd.getKey(); }
+					
+					// ad to digest map
+					if(!digest[tile].containsKey(gd.getKey())) {
+						digest[tile].put(gd.getKey(), new HashSet<Double[]>());
+					}
+					digest[tile].get(gd.getKey()).add(new Double[]{lon,lat,propI.doubleValue()});
 				}
-				
-				if(!digest[tile].containsKey(gd.getKey())) {
-					digest[tile].put(gd.getKey(), new HashSet<Double[]>());
-				}
-				digest[tile].get(gd.getKey()).add(new Double[]{lon,lat,propI.doubleValue()});
 			} else {
 				//System.out.println("No coords for item "+ gd.getSubject().getId()+ " at location "+gd.getLocation().getId());
 			}
