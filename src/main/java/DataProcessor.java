@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 
+
 /**
  * This program creates the JSON files for the ViziData Web Application
  * 
@@ -145,6 +146,27 @@ public class DataProcessor {
 			//////////
 			// humans
 			g = new DataGroup("humans","Humans","humans", "Q5");
+			
+			// add property selection
+			g.setPROPCOL(new PropSel[] {
+				/// GENDER
+				new PropSel("Gender", "P21", PropSel.TYPE.MULTI).setMultiValues(new ItemIntValue[] {
+						new ItemIntValue("Q6581097"), // male
+						new ItemIntValue("Q6581072"), // female
+						new ItemIntValue("Q1097630"), // intersex 
+						new ItemIntValue("Q1052281"), // transgender female
+						new ItemIntValue("Q2449503"), // transgender male 
+						new ItemIntValue("Q48270")    // genderqueer
+				})
+			});
+//			propsel.addMultiValue(new ItemIntValue("Q6581097"))  // male
+//					.addMultiValue(new ItemIntValue("Q6581072")) // female
+//					.addMultiValue(new ItemIntValue("Q1097630")) // intersex 
+//					.addMultiValue(new ItemIntValue("Q1052281")) // transgender female
+//					.addMultiValue(new ItemIntValue("Q2449503")) // transgender male 
+//					.addMultiValue(new ItemIntValue("Q48270"));  // genderqueer
+			//g.getPROPCOL().add(propsel);
+			
 			// births
 			s = new DataSet("birth", g, "P569", "P19");
 			strings =  new HashMap<String, String>();

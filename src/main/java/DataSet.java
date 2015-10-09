@@ -3,8 +3,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-
-import org.apache.log4j.Logger;
 import org.wikidata.wdtk.datamodel.interfaces.GlobeCoordinatesValue;
 import org.wikidata.wdtk.datamodel.interfaces.ItemDocument;
 import org.wikidata.wdtk.datamodel.interfaces.ItemIdValue;
@@ -280,6 +278,11 @@ public class DataSet {
 		vz = null;
 		ItemIntValue id = new ItemIntValue(itemDocument.getItemId().getId());
 		
+		HashMap<ItemIntValue, Integer[]> propList = this.group.getPropList();
+		boolean needProps = !propList.containsKey(id);
+		PropSel[] pss = this.group.getPROPCOL();
+		Integer[] propVals = new Integer[pss.length+1];
+		
 		appetizer(itemDocument);
 		
 		if(group.getInstanceOf() == null) {
@@ -295,7 +298,13 @@ public class DataSet {
 			} else if (sg.getProperty().getId().equals(this.zProp)) {
 				chewZ(sg);
 			}
-			// TODO collect properties info?
+			
+			if(needProps) { // collect wanted properties
+				int i = pss.length;
+				while(i>0) {
+					if(sg.getProperty().getId().equals(pss[--i].getProperty())) {
+						propVals[i+1] = pss[i].consume(sg);
+			} 	}	}
 		}
 		
 		// add the data if we found both values
@@ -304,9 +313,9 @@ public class DataSet {
 			data.add(new GeoDat(vxy, id, vz));
 			
 			// build the properties mappings
-			HashMap<ItemIntValue, String[]> propList = this.group.getPropList();
-			if(!propList.containsKey(id)) {
-				propList.put(id, new String[]{itemDocument.getItemId().getId()}); // fill in properties (still just id..)
+			if(needProps) {
+				propVals[0] = id.getInt();
+				propList.put(id, propVals);
 			}
 		}
 		dessert(itemDocument);
