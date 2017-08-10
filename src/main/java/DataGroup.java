@@ -127,7 +127,8 @@ public class DataGroup {
 				int propnum = this.PROPCOL.length, j = 0;
 				while(j < propnum) {
 					PropSel ps = this.PROPCOL[j++];
-					g.writeArrayFieldStart(ps.getId());
+					g.writeStartArray();
+						g.writeString(ps.getId());
 						int n = ps.getMultiValues().length, k = 0;
 						while(k < n) {
 							g.writeString(ps.getMultiValues()[k++].getId());
