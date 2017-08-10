@@ -31,7 +31,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
  * 
  * based on DumpProcessingExample by Markus Kroetzsch
  * 
- * @version 0.3
+ * @version 0.3.1
  * @author Georg Wild
  * 
  */
@@ -92,7 +92,7 @@ public class DataProcessor {
 	private static void printDocumentation() {
 		
 		System.out.println("********************************************************************");
-		System.out.println("*** ViziData Dump Data Extractor V0.3");
+		System.out.println("*** ViziData Dump Data Extractor V0.3.1");
 		System.out.println("***");
 		System.out.println("*** This program will chew on Wikidatas data and create");
 		System.out.println("*** the JSON files that can be fed to the ViziData web application.");
